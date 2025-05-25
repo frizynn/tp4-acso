@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -120,8 +119,8 @@ TEST(shell_handles_empty_commands) {
     }
     pclose(fp);
     
-    // Should handle empty input gracefully
-    assert(strstr(output, "Shell>") != NULL || strlen(output) >= 0);
+    // Should handle empty input gracefully (check for prompt or any output)
+    assert(strstr(output, "Shell>") != NULL || strlen(output) > 0);
 }
 
 int main() {

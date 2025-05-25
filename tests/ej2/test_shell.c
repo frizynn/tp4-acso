@@ -197,7 +197,7 @@ TEST(shell_handles_exit) {
     pclose(fp);
     
     // Should show shell startup message and exit cleanly (no error output)
-    assert(strstr(output, "Simple Shell") != NULL || strlen(output) >= 0);
+    assert(strstr(output, "Simple Shell") != NULL || output[0] != '\0');
 }
 
 // Test: Empty command handling
