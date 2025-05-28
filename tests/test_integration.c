@@ -18,8 +18,8 @@
 // Test: Ring and Shell basic functionality integration
 TEST(ring_shell_basic_integration) {
     // Test Ring first
-    system("cd src/ej1 && make clean && make");
-    FILE* fp = popen("cd src/ej1 && ./ring 3 10 0 2>/dev/null | tail -1", "r");
+    system("cd ../src/ej1 && make clean && make");
+    FILE* fp = popen("cd ../src/ej1 && ./ring 3 10 0 2>/dev/null | tail -1", "r");
     char ring_result[32];
     int ring_value = 0;
     if (fgets(ring_result, sizeof(ring_result), fp)) {
@@ -29,8 +29,8 @@ TEST(ring_shell_basic_integration) {
     pclose(fp);
     
     // Test Shell basic parsing
-    system("cd src/ej2 && make clean && make");
-    fp = popen("cd src/ej2 && echo 'echo test | cat' | ./shell 2>&1 | head -5", "r");
+    system("cd ../src/ej2 && make clean && make");
+    fp = popen("cd ../src/ej2 && echo 'echo test | cat' | ./shell 2>&1 | head -5", "r");
     char shell_output[1024] = {0};
     char line[256];
     int lines = 0;
@@ -54,12 +54,12 @@ TEST(ring_shell_performance_comparison) {
     
     // Measure Ring performance
     time_t start_time = time(NULL);
-    system("cd src/ej1 && make clean && make && ./ring 10 0 0 >/dev/null 2>&1");
+    system("cd ../src/ej1 && make clean && make && ./ring 10 0 0 >/dev/null 2>&1");
     time_t ring_time = time(NULL) - start_time;
     
     // Measure Shell compilation time
     start_time = time(NULL);
-    system("cd src/ej2 && make clean && make >/dev/null 2>&1");
+    system("cd ../src/ej2 && make clean && make >/dev/null 2>&1");
     time_t shell_time = time(NULL) - start_time;
     
     printf("  Ring compilation+execution time: %lds\n", ring_time);
@@ -73,8 +73,8 @@ TEST(ring_shell_performance_comparison) {
 // Test: Ring output can be used as input to Shell commands
 TEST(ring_output_to_shell_integration) {
     // Generate output from ring
-    system("cd src/ej1 && make clean && make");
-    FILE* fp = popen("cd src/ej1 && ./ring 5 100 0 2>/dev/null", "r");
+    system("cd ../src/ej1 && make clean && make");
+    FILE* fp = popen("cd ../src/ej1 && ./ring 5 100 0 2>/dev/null | tail -1", "r");
     char ring_output[256] = {0};
     if (fgets(ring_output, sizeof(ring_output), fp)) {
         // Remove newline
@@ -89,7 +89,7 @@ TEST(ring_output_to_shell_integration) {
     // Try to use this output in a shell command simulation
     char shell_command[512];
     snprintf(shell_command, sizeof(shell_command), 
-             "cd src/ej2 && echo 'echo %s | wc -c' | ./shell 2>&1 | head -5", 
+             "cd ../src/ej2 && echo 'echo %s | wc -c' | ./shell 2>&1 | head -5", 
              ring_output);
     
     fp = popen(shell_command, "r");
@@ -112,8 +112,8 @@ TEST(ring_shell_edge_case_consistency) {
     printf("  Testing edge case handling consistency\n");
     
     // Test Ring with edge case (single process)
-    system("cd src/ej1 && make clean && make");
-    FILE* fp = popen("cd src/ej1 && ./ring 1 42 0 2>/dev/null | tail -1", "r");
+    system("cd ../src/ej1 && make clean && make");
+    FILE* fp = popen("cd ../src/ej1 && ./ring 1 42 0 2>/dev/null | tail -1", "r");
     char ring_result[32];
     int ring_single = 0;
     if (fgets(ring_result, sizeof(ring_result), fp)) {
@@ -122,8 +122,8 @@ TEST(ring_shell_edge_case_consistency) {
     pclose(fp);
     
     // Test Shell with edge case (empty input)
-    system("cd src/ej2 && make clean && make");
-    fp = popen("cd src/ej2 && echo '' | ./shell 2>&1 | head -3", "r");
+    system("cd ../src/ej2 && make clean && make");
+    fp = popen("cd ../src/ej2 && echo '' | ./shell 2>&1 | head -3", "r");
     char shell_empty[512] = {0};
     char line[128];
     int lines = 0;
@@ -146,8 +146,8 @@ TEST(ring_shell_resource_usage) {
     printf("  Analyzing resource usage patterns\n");
     
     // Test Ring with multiple processes
-    system("cd src/ej1 && make clean && make");
-    FILE* fp = popen("cd src/ej1 && time -p ./ring 20 0 10 2>&1 | grep real || echo 'timing unavailable'", "r");
+    system("cd ../src/ej1 && make clean && make");
+    FILE* fp = popen("cd ../src/ej1 && time -p ./ring 20 0 10 2>&1 | grep real || echo 'timing unavailable'", "r");
     char timing[128] = {0};
     if (fgets(timing, sizeof(timing), fp)) {
         printf("  Ring timing info: %s", timing);
@@ -155,8 +155,8 @@ TEST(ring_shell_resource_usage) {
     pclose(fp);
     
     // Test Shell resource usage
-    system("cd src/ej2 && make clean && make");
-    fp = popen("cd src/ej2 && echo 'echo resource_test | cat | wc' | ./shell 2>&1 | wc -l", "r");
+    system("cd ../src/ej2 && make clean && make");
+    fp = popen("cd ../src/ej2 && echo 'echo resource_test | cat | wc' | ./shell 2>&1 | wc -l", "r");
     char shell_lines[32];
     int output_lines = 0;
     if (fgets(shell_lines, sizeof(shell_lines), fp)) {
