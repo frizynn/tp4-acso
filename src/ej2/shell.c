@@ -1,17 +1,16 @@
 /*
  * TP4 - Ejercicio 2: Professional Shell Implementation with Pipe Support
  * 
- * This shell implementation provides:
+ * This shell implementation features:
  * - Interactive command prompt with robust error handling
  * - Single command execution with proper cleanup
  * - Pipe command chaining (command1 | command2 | ...)
  * - Built-in commands (exit)
+ * - Quote handling for arguments with spaces
  * - Memory leak prevention and signal handling
  * - Professional error handling and resource management
  * 
- * Author: TP4-ACSO Assignment
- * Date: May 2025
- * Version: 2.0 - Professional Edition
+ * Compatible with x86_64 Linux architecture.
  */
 
 #define _GNU_SOURCE
@@ -105,8 +104,13 @@ char* trim(char* str) {
 }
 
 /**
- * Parse command line into arguments with bounds checking
- * @param command Command string to parse (will be modified)
+ * Parse command line into arguments with quote handling and bounds checking
+ * This function properly handles:
+ * - Arguments without quotes: ls | grep .zip
+ * - Arguments with quotes: ls | grep ".zip"
+ * - Arguments with spaces inside quotes: ls | grep ".png .zip"
+ * 
+ * @param command Command string to parse
  * @param args Array to store argument pointers
  * @return Number of arguments parsed, or -1 on error
  */
@@ -114,14 +118,60 @@ int parse_args(char* command, char** args) {
     if (!command || !args) return -1;
     
     int argc = 0;
-    char* token = strtok(command, " \t\n");
+    char* ptr = command;
+    char* start;
     
-    while (token != NULL && argc < MAX_ARGS - 1) {
-        args[argc++] = token;
-        token = strtok(NULL, " \t\n");
+    // Skip leading whitespace
+    while (*ptr && (*ptr == ' ' || *ptr == '\t' || *ptr == '\n')) {
+        ptr++;
     }
-    args[argc] = NULL;
     
+    while (*ptr && argc < MAX_ARGS - 1) {
+        start = ptr;
+        
+        // Handle quoted arguments
+        if (*ptr == '"') {
+            ptr++; // Skip opening quote
+            start = ptr; // Start after the quote
+            
+            // Find closing quote
+            while (*ptr && *ptr != '"') {
+                ptr++;
+            }
+            
+            if (*ptr == '"') {
+                *ptr = '\0'; // Null-terminate the argument (remove closing quote)
+                ptr++; // Move past the closing quote
+            } else {
+                // Unclosed quote - treat as regular argument
+                ptr = start - 1; // Go back to include the quote
+                goto handle_unquoted;
+            }
+        } else {
+            handle_unquoted:
+            // Handle unquoted arguments
+            while (*ptr && *ptr != ' ' && *ptr != '\t' && *ptr != '\n' && *ptr != '"') {
+                ptr++;
+            }
+            
+            if (*ptr) {
+                *ptr = '\0'; // Null-terminate
+                ptr++;
+            }
+        }
+        
+        // Store the argument if it's not empty
+        if (strlen(start) > 0) {
+            args[argc++] = start;
+        }
+        
+        // Skip whitespace before next argument
+        while (*ptr && (*ptr == ' ' || *ptr == '\t' || *ptr == '\n')) {
+            ptr++;
+        }
+    }
+    
+    args[argc] = NULL;
     return argc;
 }
 
@@ -238,222 +288,185 @@ int execute_pipe(char** commands, int num_commands) {
         }
     }
     
-    // Create child processes for each command
+    // Create copies of command strings for parsing
     for (int i = 0; i < num_commands; i++) {
-        char* args[MAX_ARGS];
-        
-        // Create a copy of the command for parsing
         cmd_copies[i] = safe_strdup(commands[i]);
         if (!cmd_copies[i]) {
             goto cleanup_and_exit;
         }
-        
-        trim(cmd_copies[i]);
-        
-        // Skip empty commands
-        if (parse_args(cmd_copies[i], args) <= 0) {
-            continue;
-        }
-        
+    }
+    
+    // Create child processes
+    for (int i = 0; i < num_commands; i++) {
         pids[i] = fork();
         
+        if (pids[i] == -1) {
+            perror("fork");
+            goto cleanup_and_exit;
+        }
+        
         if (pids[i] == 0) {
-            // Child process
+            // Child process i
+            char* args[MAX_ARGS];
             
-            // Set up input redirection
+            // Parse the command arguments
+            if (parse_args(cmd_copies[i], args) <= 0) {
+                fprintf(stderr, "Error: Invalid command '%s'\n", cmd_copies[i]);
+                exit(EXIT_FAILURE);
+            }
+            
+            // Set up pipes for this command
             if (i > 0) {
+                // Not the first command: read from previous pipe
                 if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) {
-                    perror("dup2 input");
+                    perror("dup2 stdin");
                     exit(EXIT_FAILURE);
                 }
             }
             
-            // Set up output redirection
             if (i < num_commands - 1) {
+                // Not the last command: write to next pipe
                 if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
-                    perror("dup2 output");
+                    perror("dup2 stdout");
                     exit(EXIT_FAILURE);
                 }
             }
             
-            // Close all pipe file descriptors in child
-            cleanup_pipes(pipes, num_commands - 1);
+            // Close all pipe ends in child
+            for (int j = 0; j < num_commands - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
             
             // Execute the command
             if (execvp(args[0], args) == -1) {
                 fprintf(stderr, "Error executing '%s': %s\n", args[0], strerror(errno));
                 exit(EXIT_FAILURE);
             }
-        } else if (pids[i] == -1) {
-            perror("fork");
-            goto cleanup_and_exit;
         }
     }
     
-    // Close all pipe file descriptors in parent
+    // Parent process: close all pipe ends
     cleanup_pipes(pipes, num_commands - 1);
     
-    // Wait for all child processes
+    // Wait for all children
     int result = wait_for_children(pids, num_commands);
     
-    // Cleanup allocated memory
-    for (int i = 0; i < num_commands; i++) {
-        free(cmd_copies[i]);
+    cleanup_and_exit:
+    // Cleanup
+    if (cmd_copies) {
+        for (int i = 0; i < num_commands; i++) {
+            free(cmd_copies[i]);
+        }
+        free(cmd_copies);
     }
-    free(cmd_copies);
     free(pids);
     
     return result;
-
-cleanup_and_exit:
-    // Error cleanup path
-    cleanup_pipes(pipes, num_commands - 1);
-    
-    // Kill any processes that were started
-    for (int i = 0; i < num_commands; i++) {
-        if (pids[i] > 0) {
-            kill(pids[i], SIGTERM);
-            waitpid(pids[i], NULL, 0);
-        }
-    }
-    
-    // Free allocated memory
-    for (int i = 0; i < num_commands; i++) {
-        free(cmd_copies[i]);
-    }
-    free(cmd_copies);
-    free(pids);
-    
-    return ERROR_GENERAL;
 }
 
 /**
- * Cleanup allocated commands array
- * @param commands Array of command strings
- * @param count Number of commands to free
+ * Parse a full command line into separate commands divided by pipes
+ * @param line Input command line
+ * @param commands Array to store command strings
+ * @return Number of commands found, or -1 on error
  */
-static void cleanup_commands(char** commands, int count) {
-    for (int i = 0; i < count; i++) {
-        free(commands[i]);
+int parse_pipe_commands(char* line, char** commands) {
+    if (!line || !commands) return -1;
+    
+    int num_commands = 0;
+    char* token = strtok(line, "|");
+    
+    while (token != NULL && num_commands < MAX_COMMANDS - 1) {
+        commands[num_commands] = trim(token);
+        
+        // Debug output if SHELL_DEBUG is set
+        if (getenv("SHELL_DEBUG")) {
+            printf("Command %d: %s\n", num_commands, commands[num_commands]);
+            fflush(stdout);
+        }
+        
+        num_commands++;
+        token = strtok(NULL, "|");
     }
+    
+    commands[num_commands] = NULL;
+    return num_commands;
 }
 
 /**
- * Main shell function with robust error handling and memory management
+ * Main shell loop with interactive prompt
+ * @return EXIT_SUCCESS or EXIT_FAILURE
  */
 int main() {
-    char command[COMMAND_BUFFER_SIZE];
-    char *commands[MAX_COMMANDS];
-    int command_count;
+    char* line = NULL;
+    size_t line_size = 0;
+    ssize_t line_length;
     
-    // Setup signal handlers for graceful shutdown
+    // Setup signal handlers
     setup_signal_handlers();
     
-    printf("Simple Shell with Pipe Support\n");
-    printf("Type 'exit' to quit\n\n");
-
-    /* Main shell loop */
+    printf("Shell started. Type 'exit' to quit.\n");
+    
     while (g_shell_running) {
-        /* Display prompt */
         printf("Shell> ");
-        fflush(stdout); // Ensure prompt is displayed immediately
+        fflush(stdout);
         
-        /* Read user input with bounds checking */
-        if (fgets(command, sizeof(command), stdin) == NULL) {
-            if (g_shell_running) {  // Only print if not interrupted by signal
+        // Read input line
+        line_length = getline(&line, &line_size, stdin);
+        
+        if (line_length == -1) {
+            if (feof(stdin)) {
                 printf("\nGoodbye!\n");
-            }
-            break; // EOF reached (Ctrl+D or piped input ended)
-        }
-        
-        /* Check for buffer overflow */
-        if (strlen(command) == sizeof(command) - 1 && command[sizeof(command) - 2] != '\n') {
-            fprintf(stderr, "Error: Command too long (max %d characters)\n", COMMAND_BUFFER_SIZE - 1);
-            
-            // Clear the rest of the line
-            int c;
-            while ((c = getchar()) != '\n' && c != EOF);
-            continue;
-        }
-        
-        /* Remove newline character from input */
-        command[strcspn(command, "\n")] = '\0';
-        
-        /* Skip empty commands */
-        if (strlen(trim(command)) == 0) {
-            continue;
-        }
-        
-        /* Parse commands separated by pipes */
-        command_count = 0;
-        char *command_copy = safe_strdup(command);
-        if (!command_copy) {
-            fprintf(stderr, "Error: Memory allocation failed\n");
-            continue;
-        }
-        
-        char *token = strtok(command_copy, "|");
-        
-        while (token != NULL && command_count < MAX_COMMANDS) {
-            commands[command_count] = safe_strdup(token);
-            if (!commands[command_count]) {
-                // Cleanup on allocation failure
-                cleanup_commands(commands, command_count);
-                free(command_copy);
-                fprintf(stderr, "Error: Memory allocation failed\n");
-                goto continue_loop;
-            }
-            command_count++;
-            token = strtok(NULL, "|");
-        }
-        free(command_copy);
-        
-        /* Check if we hit the command limit */
-        if (token != NULL && command_count >= MAX_COMMANDS) {
-            fprintf(stderr, "Warning: Too many piped commands (max %d), truncating\n", MAX_COMMANDS);
-        }
-
-        /* Debug output for testing purposes */
-        if (getenv("SHELL_DEBUG")) {
-            for (int i = 0; i < command_count; i++) {
-                printf("Command %d: %s\n", i, trim(commands[i]));
-                fflush(stdout);
+                break;
+            } else {
+                perror("getline");
+                continue;
             }
         }
         
-        /* Execute commands */
-        if (command_count == 1) {
-            /* Single command execution */
-            char* args[MAX_ARGS];
-            char* cmd_copy = safe_strdup(commands[0]);
-            if (cmd_copy) {
-                trim(cmd_copy);
-                
-                if (parse_args(cmd_copy, args) > 0) {
-                    execute_command(args);
+        // Remove trailing newline
+        if (line_length > 0 && line[line_length - 1] == '\n') {
+            line[line_length - 1] = '\0';
+        }
+        
+        // Skip empty lines
+        char* trimmed_line = trim(line);
+        if (strlen(trimmed_line) == 0) {
+            continue;
+        }
+        
+        // Create a copy for parsing
+        char* line_copy = safe_strdup(trimmed_line);
+        if (!line_copy) {
+            continue;
+        }
+        
+        // Parse pipe commands
+        char* commands[MAX_COMMANDS];
+        int num_commands = parse_pipe_commands(line_copy, commands);
+        
+        if (num_commands > 0) {
+            if (num_commands == 1) {
+                // Single command
+                char* args[MAX_ARGS];
+                char* cmd_copy = safe_strdup(commands[0]);
+                if (cmd_copy) {
+                    if (parse_args(cmd_copy, args) > 0) {
+                        execute_command(args);
+                    }
+                    free(cmd_copy);
                 }
-                free(cmd_copy);
+            } else {
+                // Pipeline
+                execute_pipe(commands, num_commands);
             }
-            
-        } else if (command_count > 1) {
-            /* Multiple commands with pipes */
-            execute_pipe(commands, command_count);
         }
         
-        /* Clean up allocated memory */
-        cleanup_commands(commands, command_count);
-        
-        /* If input was from pipe, exit after processing one command */
-        if (!isatty(STDIN_FILENO)) {
-            break;
-        }
-        
-        continue_loop:
-        continue;
+        free(line_copy);
     }
     
-    if (g_shell_running) {
-        printf("\nShell exiting...\n");
-    }
-    return SUCCESS;
+    free(line);
+    printf("Shell terminated.\n");
+    return EXIT_SUCCESS;
 }

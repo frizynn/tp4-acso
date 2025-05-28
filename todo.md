@@ -1,0 +1,1 @@
+actualiza run-tests para que se elija si hacer el docker o no: con esto voy a que quiero jsutamente poder ejecutar todo esto en el servidor de linux x86 64 sin tener que hacer docker para ver si todo funciona bien alli
