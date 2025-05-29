@@ -1,18 +1,3 @@
-/*
- * TP4 - Ejercicio 2: Professional Shell Implementation with Pipe Support
- * 
- * This shell implementation features:
- * - Interactive command prompt with robust error handling
- * - Single command execution with proper cleanup
- * - Pipe command chaining (command1 | command2 | ...)
- * - Built-in commands (exit)
- * - Quote handling for arguments with spaces
- * - Memory leak prevention and signal handling
- * - Professional error handling and resource management
- * 
- * Compatible with x86_64 Linux architecture.
- */
-
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +10,7 @@
 
 /* Configuration constants */
 #define MAX_COMMANDS 200
-#define MAX_ARGS 64
+#define MAX_ARGS 64 // TODO: see if it works properly with tests
 #define COMMAND_BUFFER_SIZE 1024
 #define LINE_BUFFER_SIZE 256
 
@@ -109,10 +94,11 @@ char* trim(char* str) {
  * - Arguments without quotes: ls | grep .zip
  * - Arguments with quotes: ls | grep ".zip"
  * - Arguments with spaces inside quotes: ls | grep ".png .zip"
+ * - Error detection for unclosed quotes
  * 
  * @param command Command string to parse
  * @param args Array to store argument pointers
- * @return Number of arguments parsed, or -1 on error
+ * @return Number of arguments parsed, or -1 on error, -2 on unclosed quotes
  */
 int parse_args(char* command, char** args) {
     if (!command || !args) return -1;
@@ -143,12 +129,10 @@ int parse_args(char* command, char** args) {
                 *ptr = '\0'; // Null-terminate the argument (remove closing quote)
                 ptr++; // Move past the closing quote
             } else {
-                // Unclosed quote - treat as regular argument
-                ptr = start - 1; // Go back to include the quote
-                goto handle_unquoted;
+                // Unclosed quote - this is an error
+                return -2;
             }
         } else {
-            handle_unquoted:
             // Handle unquoted arguments
             while (*ptr && *ptr != ' ' && *ptr != '\t' && *ptr != '\n' && *ptr != '"') {
                 ptr++;
@@ -169,6 +153,16 @@ int parse_args(char* command, char** args) {
         while (*ptr && (*ptr == ' ' || *ptr == '\t' || *ptr == '\n')) {
             ptr++;
         }
+    }
+    
+    // Check if there are more arguments that couldn't be processed
+    // Skip any remaining whitespace to see if there are more arguments
+    while (*ptr && (*ptr == ' ' || *ptr == '\t' || *ptr == '\n')) {
+        ptr++;
+    }
+    if (*ptr) {
+        // There are more arguments that couldn't be processed - this is an overflow
+        return -1;
     }
     
     args[argc] = NULL;
@@ -310,9 +304,20 @@ int execute_pipe(char** commands, int num_commands) {
             char* args[MAX_ARGS];
             
             // Parse the command arguments
-            if (parse_args(cmd_copies[i], args) <= 0) {
-                fprintf(stderr, "Error: Invalid command '%s'\n", cmd_copies[i]);
+            int parse_result = parse_args(cmd_copies[i], args);
+            if (parse_result <= 0) {
+                if (parse_result == -1) {
+                    fprintf(stderr, "Error: Too many arguments in command '%s' (maximum %d)\n", cmd_copies[i], MAX_ARGS - 1);
+                } else {
+                    fprintf(stderr, "Error: Invalid command '%s'\n", cmd_copies[i]);
+                }
                 exit(EXIT_FAILURE);
+            }
+            
+            // Handle built-in commands in pipeline
+            if (strcmp(args[0], "exit") == 0) {
+                // Exit command in pipeline - just exit silently
+                exit(EXIT_SUCCESS);
             }
             
             // Set up pipes for this command
@@ -367,6 +372,7 @@ int execute_pipe(char** commands, int num_commands) {
 
 /**
  * Parse a full command line into separate commands divided by pipes
+ * This function properly handles quotes so that pipes inside quotes are not treated as separators
  * @param line Input command line
  * @param commands Array to store command strings
  * @return Number of commands found, or -1 on error
@@ -375,10 +381,33 @@ int parse_pipe_commands(char* line, char** commands) {
     if (!line || !commands) return -1;
     
     int num_commands = 0;
-    char* token = strtok(line, "|");
+    char* start = line;
+    char* ptr = line;
+    int in_quotes = 0;
     
-    while (token != NULL && num_commands < MAX_COMMANDS - 1) {
-        commands[num_commands] = trim(token);
+    while (*ptr && num_commands < MAX_COMMANDS - 1) {
+        if (*ptr == '"' && (ptr == line || *(ptr-1) != '\\')) {
+            in_quotes = !in_quotes;
+        } else if (*ptr == '|' && !in_quotes) {
+            // Found a pipe separator outside of quotes
+            *ptr = '\0';  // Null-terminate the current command
+            commands[num_commands] = trim(start);
+            
+            // Debug output if SHELL_DEBUG is set
+            if (getenv("SHELL_DEBUG")) {
+                printf("Command %d: %s\n", num_commands, commands[num_commands]);
+                fflush(stdout);
+            }
+            
+            num_commands++;
+            start = ptr + 1;  // Start of next command
+        }
+        ptr++;
+    }
+    
+    // Add the last command
+    if (start && num_commands < MAX_COMMANDS - 1) {
+        commands[num_commands] = trim(start);
         
         // Debug output if SHELL_DEBUG is set
         if (getenv("SHELL_DEBUG")) {
@@ -387,7 +416,6 @@ int parse_pipe_commands(char* line, char** commands) {
         }
         
         num_commands++;
-        token = strtok(NULL, "|");
     }
     
     commands[num_commands] = NULL;
@@ -403,21 +431,32 @@ int main() {
     size_t line_size = 0;
     ssize_t line_length;
     
+    // Detect if we're running interactively
+    int is_interactive = isatty(STDIN_FILENO);
+    
     // Setup signal handlers
     setup_signal_handlers();
     
-    printf("Shell started. Type 'exit' to quit.\n");
+    // Only show welcome message in interactive mode
+    if (is_interactive) {
+        printf("Shell started. Type 'exit' to quit.\n");
+    }
     
     while (g_shell_running) {
-        printf("Shell> ");
-        fflush(stdout);
+        // Only show prompt in interactive mode
+        if (is_interactive) {
+            printf("Shell> ");
+            fflush(stdout);
+        }
         
         // Read input line
         line_length = getline(&line, &line_size, stdin);
         
         if (line_length == -1) {
             if (feof(stdin)) {
-                printf("\nGoodbye!\n");
+                if (is_interactive) {
+                    printf("\nGoodbye!\n");
+                }
                 break;
             } else {
                 perror("getline");
@@ -452,8 +491,11 @@ int main() {
                 char* args[MAX_ARGS];
                 char* cmd_copy = safe_strdup(commands[0]);
                 if (cmd_copy) {
-                    if (parse_args(cmd_copy, args) > 0) {
+                    int parse_result = parse_args(cmd_copy, args);
+                    if (parse_result > 0) {
                         execute_command(args);
+                    } else if (parse_result == -1) {
+                        fprintf(stderr, "Error: Too many arguments (maximum %d)\n", MAX_ARGS - 1);
                     }
                     free(cmd_copy);
                 }
@@ -464,9 +506,16 @@ int main() {
         }
         
         free(line_copy);
+        
+        // In non-interactive mode, exit after processing one command sequence
+        if (!is_interactive) {
+            break;
+        }
     }
     
     free(line);
-    printf("Shell terminated.\n");
+    if (is_interactive) {
+        printf("Shell terminated.\n");
+    }
     return EXIT_SUCCESS;
 }

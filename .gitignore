@@ -40,6 +40,10 @@
 *.dSYM/
 *.su
 *.idb
+tests/*
+!tests/ej1/
+!tests/ej2/
+
 *.pdb
 
 # Kernel Module Compile Results
