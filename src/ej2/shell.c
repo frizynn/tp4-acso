@@ -112,7 +112,8 @@ int parse_args(char* command, char** args) {
         ptr++;
     }
     
-    while (*ptr && argc < MAX_ARGS - 1) {
+    // Parse arguments up to MAX_ARGS (leaving space for NULL terminator)
+    while (*ptr && argc < MAX_ARGS) {
         start = ptr;
         
         // Handle quoted arguments
@@ -161,7 +162,7 @@ int parse_args(char* command, char** args) {
         ptr++;
     }
     if (*ptr) {
-        // There are more arguments that couldn't be processed - this is an overflow
+        // There are more arguments that couldn't be processed - overflow
         return -1;
     }
     
@@ -188,7 +189,7 @@ int execute_command(char** args) {
     pid_t pid = fork();
     if (pid == 0) {
         // Child process
-        if (execvp(args[0], args) == -1) {
+        if (execvp(args[0], args) == -1) { 
             fprintf(stderr, "Error executing '%s': %s\n", args[0], strerror(errno));
             exit(EXIT_FAILURE);
         }
@@ -307,7 +308,9 @@ int execute_pipe(char** commands, int num_commands) {
             int parse_result = parse_args(cmd_copies[i], args);
             if (parse_result <= 0) {
                 if (parse_result == -1) {
-                    fprintf(stderr, "Error: Too many arguments in command '%s' (maximum %d)\n", cmd_copies[i], MAX_ARGS - 1);
+                    fprintf(stderr, "Error: Too many arguments in command '%s' (maximum %d)\n", cmd_copies[i], MAX_ARGS);
+                } else if (parse_result == -2) {
+                    fprintf(stderr, "Error: Unclosed quotes in command '%s'\n", cmd_copies[i]);
                 } else {
                     fprintf(stderr, "Error: Invalid command '%s'\n", cmd_copies[i]);
                 }
@@ -343,16 +346,36 @@ int execute_pipe(char** commands, int num_commands) {
                 close(pipes[j][1]);
             }
             
+            // For long pipelines, disable buffering to improve flow
+            if (num_commands > 10) {
+                setvbuf(stdout, NULL, _IONBF, 0);
+                setvbuf(stdin, NULL, _IONBF, 0);
+            }
+            
             // Execute the command
             if (execvp(args[0], args) == -1) {
                 fprintf(stderr, "Error executing '%s': %s\n", args[0], strerror(errno));
                 exit(EXIT_FAILURE);
             }
         }
+        
+        // In parent: close pipes that are no longer needed as we create processes
+        // This ensures proper data flow in long pipelines
+        if (i > 0) {
+            // Close the read end of the previous pipe since the current process is now reading from it
+            close(pipes[i-1][0]);
+        }
+        if (i < num_commands - 1) {
+            // Close the write end of the current pipe since the current process is now writing to it
+            close(pipes[i][1]);
+        }
     }
     
-    // Parent process: close all pipe ends
-    cleanup_pipes(pipes, num_commands - 1);
+    // Parent process: close any remaining pipe ends
+    for (int i = 0; i < num_commands - 1; i++) {
+        if (pipes[i][0] != -1) close(pipes[i][0]);
+        if (pipes[i][1] != -1) close(pipes[i][1]);
+    }
     
     // Wait for all children
     int result = wait_for_children(pids, num_commands);
@@ -495,7 +518,11 @@ int main() {
                     if (parse_result > 0) {
                         execute_command(args);
                     } else if (parse_result == -1) {
-                        fprintf(stderr, "Error: Too many arguments (maximum %d)\n", MAX_ARGS - 1);
+                        fprintf(stderr, "Error: Too many arguments in command '%s' (maximum %d)\n", cmd_copy, MAX_ARGS);
+                    } else if (parse_result == -2) {
+                        fprintf(stderr, "Error: Unclosed quotes\n");
+                    } else {
+                        fprintf(stderr, "Error: Invalid command\n");
                     }
                     free(cmd_copy);
                 }
