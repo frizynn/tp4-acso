@@ -193,11 +193,10 @@ int main() {
     printf("=================================================================\n");
     printf("🎉 All integration tests completed successfully!\n");
     printf("=================================================================\n");
-    printf("✅ Ring Communication (Exercise 1): Functional\n");
-    printf("✅ Shell Implementation (Exercise 2): Functional\n");  
+
+    
     printf("✅ Cross-exercise compatibility: Verified\n");
-    printf("✅ Resource usage patterns: Analyzed\n");
-    printf("✅ Edge case handling: Consistent\n");
+    
     printf("=================================================================\n");
     
     return 0;

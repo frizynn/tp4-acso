@@ -11,7 +11,7 @@
 #define RUN_TEST(name) do { \
     printf("Running test: %s\n", #name); \
     test_##name(); \
-    printf("✓ %s passed\n", #name); \
+    printf(" %s passed\n", #name); \
 } while(0)
 
 // Helper function to test shell interaction
@@ -233,6 +233,6 @@ int main() {
     RUN_TEST(shell_handles_exit);
     RUN_TEST(shell_handles_empty_input);
     
-    printf("\n✓ All shell tests passed!\n");
+    printf("\n All shell tests passed!\n");
     return 0;
 }

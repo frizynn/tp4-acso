@@ -10,7 +10,7 @@
 
 /* Configuration constants */
 #define MAX_COMMANDS 200
-#define MAX_ARGS 64 // TODO: see if it works properly with tests
+#define MAX_ARGS 64 
 #define COMMAND_BUFFER_SIZE 1024
 #define LINE_BUFFER_SIZE 256
 
@@ -233,7 +233,7 @@ static int wait_for_children(pid_t* pids, int num_processes) {
     int exit_status = SUCCESS;
     
     for (int i = 0; i < num_processes; i++) {
-        if (pids[i] > 0) {  // Only wait for valid PIDs
+        if (pids[i] > 0) { 
             int status;
             if (waitpid(pids[i], &status, 0) == -1) {
                 perror("waitpid");
@@ -281,7 +281,7 @@ int execute_pipe(char** commands, int num_commands) {
     for (int i = 0; i < num_commands - 1; i++) {
         if (pipe(pipes[i]) == -1) {
             perror("pipe");
-            cleanup_pipes(pipes, i);  // Clean up pipes created so far
+            cleanup_pipes(pipes, i);  
             goto cleanup_and_exit;
         }
     }
@@ -315,7 +315,7 @@ int execute_pipe(char** commands, int num_commands) {
                 } else if (parse_result == -2) {
                     fprintf(stderr, "Error: Unclosed quotes in command '%s'\n", cmd_copies[i]);
                 } else {
-                    fprintf(stderr, "Error: Invalid command '%s'\n", cmd_copies[i]);
+                    fprintf(stderr, "Error: Invalid command '%s'\n", cmd_copies[i]); // if this is reached, there is an error in the command (I hope xD)
                 }
                 exit(EXIT_FAILURE);
             }
@@ -398,7 +398,6 @@ int execute_pipe(char** commands, int num_commands) {
 
 /**
  * Parse a full command line into separate commands divided by pipes
- * This function properly handles quotes so that pipes inside quotes are not treated as separators
  * @param line Input command line
  * @param commands Array to store command strings
  * @return Number of commands found, or -1 on error
@@ -468,11 +467,7 @@ int main() {
     
     // Show welcome message in interactive mode or test mode
     if (is_interactive) {
-        if (g_test_mode) {
-            printf("Shell started. Type 'exit' to quit.\n");
-        } else {
-            printf("Shell started. Type 'exit' to quit.\n");
-        }
+        printf("Shell started. Type 'exit' to quit.\n");
     }
     
     while (g_shell_running) {

@@ -63,7 +63,6 @@ TEST(test_exact_enunciado_requirements) {
     char* output3 = run_shell_command("ls | grep \".png .zip\"");
     assert(strstr(output3, "Command 0: ls") != NULL);
     assert(strstr(output3, "Command 1: grep \".png .zip\"") != NULL);
-    // No debería encontrar archivos porque busca el patrón literal ".png .zip"
     
     // Clean up
     system("cd ../../src/ej2 && rm -f archivo.zip foto.png documento.pdf imagen.zip");
@@ -199,7 +198,7 @@ TEST(test_stress_patterns) {
 }
 
 int main() {
-    printf("🔍 COMPREHENSIVE QUOTE HANDLING TESTS\n");
+    printf(" COMPREHENSIVE QUOTE HANDLING TESTS\n");
     printf("=====================================\n");
     printf("Testing ALL edge cases and bash compatibility\n");
     printf("---------------------------------------------\n");
@@ -216,12 +215,11 @@ int main() {
     RUN_TEST(test_complex_pipeline_quotes);
     RUN_TEST(test_stress_patterns);
     
-    printf("\n🏆 COMPREHENSIVE TESTING COMPLETE!\n");
+    printf("\n COMPREHENSIVE TESTING COMPLETE!\n");
     printf("=========================================\n");
-    printf("✅ ALL edge cases handled correctly\n");
-    printf("✅ FULL bash compatibility verified\n");
-    printf("✅ Ready for perfect score (10/10)!\n");
-    printf("\n📝 VERIFIED FUNCTIONALITY:\n");
+    printf(" ALL edge cases handled correctly\n");
+    printf(" FULL bash compatibility verified\n");
+    printf("\n VERIFIED FUNCTIONALITY:\n");
     printf("  ✓ ls | grep .zip (basic case)\n");
     printf("  ✓ ls | grep \".zip\" (quoted extension)\n");
     printf("  ✓ ls | grep \".png .zip\" (spaced patterns)\n");
@@ -230,6 +228,5 @@ int main() {
     printf("  ✓ Mixed quote/unquote arguments\n");
     printf("  ✓ Regex special characters in quotes\n");
     printf("  ✓ Multi-stage pipelines with quotes\n");
-    printf("\n🎯 YOUR SHELL WORKS EXACTLY LIKE LINUX! 🎯\n");
     return 0;
 } 

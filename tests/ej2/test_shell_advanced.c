@@ -133,7 +133,7 @@ int main() {
     RUN_TEST(shell_handles_whitespace);
     RUN_TEST(shell_handles_empty_commands);
     
-    printf("\n✓ All advanced shell tests completed!\n");
+    printf("\n All advanced shell tests completed!\n");
     printf("Shell implementation handles complex scenarios.\n");
     return 0;
 }

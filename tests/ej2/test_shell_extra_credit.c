@@ -12,7 +12,7 @@
 #define RUN_TEST(test_func) do { \
     printf("Running extra credit test: %s\n", #test_func); \
     test_func(); \
-    printf("✓ %s passed\n", #test_func); \
+    printf(" %s passed\n", #test_func); \
 } while(0)
 
 #define TEST(name) void name()
@@ -226,7 +226,7 @@ TEST(shell_handles_exact_extra_credit_examples) {
     assert(strstr(output2, "Command 0: ls") != NULL);
     assert(strstr(output2, "Command 1: grep") != NULL);
     
-    printf("✓ Both exact extra credit examples parsed successfully!\n");
+    printf(" Both exact extra credit examples parsed successfully!\n");
 }
 
 int main() {
@@ -244,12 +244,11 @@ int main() {
     RUN_TEST(shell_handles_quotes_with_boundary_spaces);
     RUN_TEST(shell_handles_exact_extra_credit_examples);
     
-    printf("\n🎉 All extra credit tests completed!\n");
+    printf("\n All extra credit tests completed!\n");
     printf("Shell implementation successfully handles:\n");
-    printf("  ✓ ls | grep \".zip\"\n");
-    printf("  ✓ ls | grep \".png .zip\"\n");
-    printf("  ✓ Complex quoted patterns\n");
-    printf("  ✓ Mixed quote scenarios\n");
-    printf("EXTRA CREDIT FUNCTIONALITY VERIFIED! 🏆\n");
+    printf("  ls | grep \".zip\"\n");
+    printf("  ls | grep \".png .zip\"\n");
+    printf("  Complex quoted patterns\n");
+    printf("  Mixed quote scenarios\n");
     return 0;
 }
