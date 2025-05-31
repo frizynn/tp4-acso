@@ -24,6 +24,9 @@
 /* Global variables for signal handling */
 static volatile sig_atomic_t g_shell_running = 1;
 
+/* Global variable for testing mode */
+static int g_test_mode = 0;
+
 /**
  * Signal handler for graceful shutdown
  * Handles SIGINT (Ctrl+C) and SIGTERM for clean exit
@@ -454,19 +457,26 @@ int main() {
     size_t line_size = 0;
     ssize_t line_length;
     
-    // Detect if we're running interactively
-    int is_interactive = isatty(STDIN_FILENO);
+    // Check if we're in test mode
+    g_test_mode = (getenv("SHELL_TEST_MODE") != NULL);
+    
+    // Detect if we're running interactively (or in test mode)
+    int is_interactive = isatty(STDIN_FILENO) || g_test_mode;
     
     // Setup signal handlers
     setup_signal_handlers();
     
-    // Only show welcome message in interactive mode
+    // Show welcome message in interactive mode or test mode
     if (is_interactive) {
-        printf("Shell started. Type 'exit' to quit.\n");
+        if (g_test_mode) {
+            printf("Shell started. Type 'exit' to quit.\n");
+        } else {
+            printf("Shell started. Type 'exit' to quit.\n");
+        }
     }
     
     while (g_shell_running) {
-        // Only show prompt in interactive mode
+        // Show prompt in interactive mode or test mode
         if (is_interactive) {
             printf("Shell> ");
             fflush(stdout);

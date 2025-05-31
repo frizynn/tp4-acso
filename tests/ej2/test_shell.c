@@ -184,8 +184,8 @@ TEST(shell_executes_pipe_command) {
 TEST(shell_handles_exit) {
     system("cd ../../src/ej2 && make clean && make");
     
-    // Test exit command
-    FILE* fp = popen("cd ../../src/ej2 && printf 'exit\\n' | ./shell 2>&1 | head -3", "r");
+    // Test exit command with test mode enabled
+    FILE* fp = popen("cd ../../src/ej2 && printf 'exit\\n' | SHELL_TEST_MODE=1 ./shell 2>&1 | head -3", "r");
     char output[1024] = {0};
     char line[256];
     int lines = 0;
@@ -196,16 +196,16 @@ TEST(shell_handles_exit) {
     }
     pclose(fp);
     
-    // Should show shell startup message and exit cleanly (no error output)
-    assert(strstr(output, "Simple Shell") != NULL || output[0] != '\0');
+    // Should show shell startup message and exit cleanly
+    assert(strstr(output, "Shell started") != NULL || output[0] != '\0');
 }
 
 // Test: Empty command handling
 TEST(shell_handles_empty_input) {
     system("cd ../../src/ej2 && make clean && make");
     
-    // Test empty input
-    FILE* fp = popen("cd ../../src/ej2 && printf '\\n' | ./shell 2>&1 | head -3", "r");
+    // Test empty input with test mode enabled
+    FILE* fp = popen("cd ../../src/ej2 && printf '\\n' | SHELL_TEST_MODE=1 ./shell 2>&1 | head -3", "r");
     char output[1024] = {0};
     char line[256];
     int lines = 0;
@@ -217,7 +217,7 @@ TEST(shell_handles_empty_input) {
     pclose(fp);
     
     // Should handle empty input gracefully
-    assert(strstr(output, "Shell>") != NULL || strstr(output, "Simple Shell") != NULL || strlen(output) == 0);
+    assert(strstr(output, "Shell>") != NULL || strstr(output, "Shell started") != NULL || strlen(output) == 0);
 }
 
 int main() {

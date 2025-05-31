@@ -18,8 +18,8 @@
 TEST(shell_handles_long_commands) {
     system("cd ../../src/ej2 && make clean && make");
     
-    // Create a very long command
-    FILE* fp = popen("cd ../../src/ej2 && echo 'echo this_is_a_very_long_command_with_many_words_to_test_buffer_handling' | ./shell 2>&1", "r");
+    // Create a very long command with test mode enabled
+    FILE* fp = popen("cd ../../src/ej2 && echo 'echo this_is_a_very_long_command_with_many_words_to_test_buffer_handling' | SHELL_TEST_MODE=1 ./shell 2>&1", "r");
     char output[1024] = {0};
     char line[256];
     int lines = 0;
@@ -108,7 +108,7 @@ TEST(shell_handles_whitespace) {
 TEST(shell_handles_empty_commands) {
     system("cd ../../src/ej2 && make clean && make");
     
-    FILE* fp = popen("cd ../../src/ej2 && echo '' | ./shell 2>&1 | head -3", "r");
+    FILE* fp = popen("cd ../../src/ej2 && echo '' | SHELL_TEST_MODE=1 ./shell 2>&1 | head -3", "r");
     char output[512] = {0};
     char line[256];
     int lines = 0;
